@@ -44,6 +44,8 @@ jobs:
           pnpm exec tsc -b
           pnpm exec vite build --base="$BASE_PATH"
           cp dist/index.html dist/404.html
+          mkdir -p dist/components
+          cp dist/index.html dist/components/index.html
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
