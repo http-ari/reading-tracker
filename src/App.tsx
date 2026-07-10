@@ -77,7 +77,9 @@ function loadState(): ReadingState {
 }
 
 export function App() {
-  if (window.location.pathname === COMPONENTS_PATH || window.location.pathname.endsWith("/components")) {
+  const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
+  const componentsPath = COMPONENTS_PATH.replace(/\/+$/, "");
+  if (pathname === componentsPath || pathname.endsWith("/components")) {
     return <ComponentGallery />;
   }
 
