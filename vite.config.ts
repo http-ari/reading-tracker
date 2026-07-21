@@ -28,48 +28,53 @@ function sendJson(res: ServerResponse, status: number, payload: unknown) {
   res.end(JSON.stringify(payload));
 }
 
+async function handleReadingState(req: IncomingMessage, res: ServerResponse) {
+  try {
+    if (req.method === "GET") {
+      try {
+        const markdown = await fs.readFile(dataFile, "utf8");
+        const json = extractJson(markdown);
+        sendJson(res, 200, json ? JSON.parse(json) : null);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+          sendJson(res, 200, null);
+          return;
+        }
+        throw error;
+      }
+      return;
+    }
+
+    if (req.method === "POST") {
+      const body = await readBody(req);
+      const payload = JSON.parse(body);
+      await fs.mkdir(path.dirname(dataFile), { recursive: true });
+      await fs.writeFile(
+        dataFile,
+        `# Reading Tracker State\n\n\`\`\`json\n${JSON.stringify(payload, null, 2)}\n\`\`\`\n`,
+        "utf8",
+      );
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    res.statusCode = 405;
+    res.end("Method Not Allowed");
+  } catch (error) {
+    sendJson(res, 500, {
+      error: error instanceof Error ? error.message : "Unknown sync error",
+    });
+  }
+}
+
 function readingStatePlugin(): Plugin {
   return {
     name: "reading-state-markdown-api",
     configureServer(server) {
-      server.middlewares.use("/api/reading-state", async (req, res) => {
-        try {
-          if (req.method === "GET") {
-            try {
-              const markdown = await fs.readFile(dataFile, "utf8");
-              const json = extractJson(markdown);
-              sendJson(res, 200, json ? JSON.parse(json) : null);
-            } catch (error) {
-              if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-                sendJson(res, 200, null);
-                return;
-              }
-              throw error;
-            }
-            return;
-          }
-
-          if (req.method === "POST") {
-            const body = await readBody(req);
-            const payload = JSON.parse(body);
-            await fs.mkdir(path.dirname(dataFile), { recursive: true });
-            await fs.writeFile(
-              dataFile,
-              `# Reading Tracker State\n\n\`\`\`json\n${JSON.stringify(payload, null, 2)}\n\`\`\`\n`,
-              "utf8",
-            );
-            sendJson(res, 200, { ok: true });
-            return;
-          }
-
-          res.statusCode = 405;
-          res.end("Method Not Allowed");
-        } catch (error) {
-          sendJson(res, 500, {
-            error: error instanceof Error ? error.message : "Unknown sync error",
-          });
-        }
-      });
+      server.middlewares.use("/api/reading-state", handleReadingState);
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use("/api/reading-state", handleReadingState);
     },
   };
 }
